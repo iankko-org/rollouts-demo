@@ -60,6 +60,31 @@ func init() {
 	}
 }
 
+// Stub readiness / liveness probe handler
+func readyLiveStubHandler(w http.ResponseWriter, r *http.Request) {
+	var readyLiveListenAddr string = os.Getenv("LISTEN_ADDR")
+	var url string
+	if readyLiveListenAddr != "" {
+		if strings.HasPrefix(readyLiveListenAddr, ":") {
+			url = "http://localhost" + readyLiveListenAddr
+		} else {
+			url = "http://" + readyLiveListenAddr
+		}
+	} else {
+		// Default listenAddr's value below is ":8080"
+		url = "http://localhost:8080"
+	}
+	var err error
+	_, err = http.Get(url)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprint(w, "Server not ready/healthy")
+	} else {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, "Server ready/healthy")
+	}
+}
+
 func main() {
 	var (
 		err				error
@@ -99,6 +124,10 @@ func main() {
 	router := http.NewServeMux()
 	router.Handle("/", http.StripPrefix("/", http.FileServer(http.Dir("./"))))
 	router.HandleFunc("/color", getColor)
+	// Readiness endpoint
+	router.HandleFunc("/api/readiness", readyLiveStubHandler)
+	// Liveness endpoint
+	router.HandleFunc("/api/healthz", readyLiveStubHandler)
 
 	server := &http.Server{
 		Addr:    listenAddr,
